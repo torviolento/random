@@ -135,6 +135,64 @@ class MessageHandler:
                     return False
                 return matchbox
 
+    def get_new_msgs(self):
+        matchbox = []
+        self.msgs = self.log_box.find_elements_by_class_name('logitem')
+
+        new_msg_amount = len(self.msgs) - self.old_len
+
+        if new_msg_amount > 0:
+            for msg in self.msgs[-new_msg_amount:]:
+                # print(msg.text.replace("\u2022", "#!#"))
+                msg_type = msg.find_element_by_tag_name('p').get_attribute(
+                    'class')
+                matchbox.append((msg_type, msg.text))
+        return matchbox
+
+    def get_msgs_generator(self):
+
+            self.msgs = self.log_box.find_elements_by_class_name('logitem')
+            new_msg_amount = len(self.msgs) - self.old_len
+            last_found = None
+            while new_msg_amount > 0:
+                print(new_msg_amount)
+                for msg in self.msgs[-new_msg_amount:]:
+                    # print(msg.text.replace("\u2022", "#!#"))
+                    msg_type = msg.find_element_by_tag_name('p').get_attribute(
+                        'class')
+                    yield (msg_type, msg.text)
+                    if msg == last_found):
+                        new_msg_amount = 0
+    class Msgs_iterator(object):
+        def __init__(self, chat):
+            self.last_found = None
+            self.matchbox = []
+            self.chat = chat
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            # todo: Make some sense
+            # if there are found messages already return them first
+            reply = self.matchbox.pop()
+            if reply:
+                return reply
+            else:
+                msgs = self.chat.log_box.find_elements_by_class_name('logitem')
+
+                # if first run then the first found message is returned and saved to self.last_found
+                if self.last_found is None:
+                    self.last_found = msgs[0]
+                    return self.last_found
+                else:
+                    for msg in self.msgs[::-1]:
+                        if msg == self.last_found:
+                            self.last_found = self.matchbox.pop()
+                            self.matchbox.reverse()
+                            return self.last_found
+                        else:
+                            self.matchbox.append(msg)
+
 
 def interactive():
     print("Interactive python. Ctrl-C to exit")
@@ -159,17 +217,11 @@ def main():
     # msgs = psatti2.msg_handler.get_msgs()
     while 1:
         try:
-            msgs = psatti.msg_handler.get_msgs()
-            if msgs is False:
-                psatti.new_chat()
-            elif msgs is None:
-                pass
-            elif msgs is not []:
-                send_back(psatti, msgs)
-                print(*msgs)
-
+            msgs = psatti.msg_handler.get_msgs_generator()
+            for msg in msgs:
+                print("# {}: {} #".format(*msg))
+                send_back(psatti, msg)
             time.sleep(1)
-
         except NoSuchWindowException:
             print("Window closed, bye")
             break
@@ -189,7 +241,6 @@ def main():
 def send_back(psatti, msgs):
 
     for msg in msgs:
-        print(",#,", msg)
         if msg[0] == "strangermsg":
 
             a = list(msg[1].replace("Stranger: ", ""))
